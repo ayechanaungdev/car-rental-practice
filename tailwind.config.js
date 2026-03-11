@@ -19,6 +19,23 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        brand: {
+          0:    '#f7fdff',   // Lightest
+          50:   '#f0fafe',
+          100:  '#e1f6fd',
+          200:  '#c4ecfb',
+          300:  '#94d8f4',
+          400:  '#73cdf1',
+          500:  '#53c1ed',
+          600:  '#32b6ea',
+          700:  '#16a8e3',   // Main brand color
+          800:  '#1390c2',
+          850:  '#1078a2',
+          900:  '#0c6081',
+          925:  '#094861',
+          950:  '#063040',
+          975:  '#031820',   // Darkest
+        },
         primary: {
           0: 'rgb(var(--color-primary-0)/<alpha-value>)',
           50: 'rgb(var(--color-primary-50)/<alpha-value>)',

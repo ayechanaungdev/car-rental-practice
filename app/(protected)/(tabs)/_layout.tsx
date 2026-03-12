@@ -20,27 +20,27 @@ export default function TabLayout() {
   //   - Show/hide owner-only tabs (My Cars, Drivers) using href: null
   //   - Show/hide Wishlist tab for renters only
   //   - Add custom header with avatar (→ Profile), search, and notification icons
-  const { profile } = useAuthStore();
-  const isOwner = profile?.role === 'car_owner';
+  const { user, role } = useAuthStore();
+  const isOwner = role === 'owner';
 
   return (
     <Tabs screenOptions={{
       tabBarActiveTintColor: '#16a8e3', // brand-700
       headerTitle: '', // Clean look — no title text
       headerLeft: () => (
-        <Pressable className="ml-4" onPress={() => router.push('/profile' as any)}>
+        <Pressable className="ml-4" onPress={() => router.push('/(home)/profile')}>
           <Image 
-            source={{ uri: profile?.avatar_url || 'https://via.placeholder.com/32' }} 
+            source={{ uri: user?.user_metadata?.avatar_url || 'https://via.placeholder.com/32' }} 
             className="w-8 h-8 rounded-full bg-gray-200" 
           />
         </Pressable>
       ),
       headerRight: () => (
         <View className="flex-row mr-4 gap-4">
-          <Pressable onPress={() => { /* TODO: open search */ }}>
+          <Pressable onPress={() => router.push('/(home)/search')}>
             <Search size={22} color="#16a8e3" />
           </Pressable>
-          <Pressable onPress={() => { /* TODO: open notifications */ }}>
+          <Pressable onPress={() => router.push('/(home)/notifications')}>
             <Bell size={22} color="#16a8e3" />
           </Pressable>
         </View>

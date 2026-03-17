@@ -21,7 +21,7 @@ export default function TabLayout() {
   //   - Show/hide Wishlist tab for renters only
   //   - Add custom header with avatar (→ Profile), search, and notification icons
   const { user, role } = useAuthStore();
-  const isOwner = role === 'owner';
+  const isOwner = role === 'car_owner';
 
   return (
     <Tabs screenOptions={{
@@ -29,9 +29,9 @@ export default function TabLayout() {
       headerTitle: '', // Clean look — no title text
       headerLeft: () => (
         <Pressable className="ml-4" onPress={() => router.push('/(home)/profile')}>
-          <Image 
-            source={{ uri: user?.user_metadata?.avatar_url || 'https://via.placeholder.com/32' }} 
-            className="w-8 h-8 rounded-full bg-gray-200" 
+          <Image
+            source={{ uri: user?.user_metadata?.avatar_url || 'https://via.placeholder.com/32' }}
+            className="w-8 h-8 rounded-full bg-gray-200"
           />
         </Pressable>
       ),
@@ -47,52 +47,52 @@ export default function TabLayout() {
       ),
     }}>
       {/* === Shared Tabs (both roles) === */}
-      <Tabs.Screen 
-        name="index" 
-        options={{ 
+      <Tabs.Screen
+        name="index"
+        options={{
           title: isOwner ? 'Dashboard' : 'Dashboard',
-          tabBarIcon: ({ color }) => isOwner 
-            ? <LayoutDashboard color={color} size={24} /> 
-            : <Home color={color} size={24} /> 
-        }} 
+          tabBarIcon: ({ color }) => isOwner
+            ? <LayoutDashboard color={color} size={24} />
+            : <Home color={color} size={24} />
+        }}
       />
-      <Tabs.Screen 
-        name="bookings" 
-        options={{ title: 'Bookings', tabBarIcon: ({ color }) => <Calendar color={color} size={24} /> }} 
+      <Tabs.Screen
+        name="bookings"
+        options={{ title: 'Bookings', tabBarIcon: ({ color }) => <Calendar color={color} size={24} /> }}
       />
 
       {/* === Renter-only Tab === */}
-      <Tabs.Screen 
-        name="wishlist" 
-        options={{ 
-          title: 'Wishlist', 
+      <Tabs.Screen
+        name="wishlist"
+        options={{
+          title: 'Wishlist',
           href: isOwner ? null : '/wishlist',
-          tabBarIcon: ({ color }) => <Heart color={color} size={24} /> 
-        }} 
+          tabBarIcon: ({ color }) => <Heart color={color} size={24} />
+        }}
       />
 
       {/* === Shared Tab === */}
-      <Tabs.Screen 
-        name="messages" 
-        options={{ title: 'Chat history', tabBarIcon: ({ color }) => <MessageSquare color={color} size={24} /> }} 
+      <Tabs.Screen
+        name="messages"
+        options={{ title: 'Chat history', tabBarIcon: ({ color }) => <MessageSquare color={color} size={24} /> }}
       />
 
       {/* === Owner-only Tabs === */}
-      <Tabs.Screen 
-        name="owner_cars" 
-        options={{ 
-          title: 'My Cars', 
+      <Tabs.Screen
+        name="owner_cars"
+        options={{
+          title: 'My Cars',
           href: isOwner ? '/owner_cars' : null,
-          tabBarIcon: ({ color }) => <Car color={color} size={24} /> 
-        }} 
+          tabBarIcon: ({ color }) => <Car color={color} size={24} />
+        }}
       />
-      <Tabs.Screen 
-        name="drivers" 
-        options={{ 
-          title: 'Drivers', 
+      <Tabs.Screen
+        name="drivers"
+        options={{
+          title: 'Drivers',
           href: isOwner ? '/drivers' : null,
-          tabBarIcon: ({ color }) => <Users color={color} size={24} /> 
-        }} 
+          tabBarIcon: ({ color }) => <Users color={color} size={24} />
+        }}
       />
     </Tabs>
   );

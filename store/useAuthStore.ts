@@ -8,15 +8,19 @@ interface AuthState {
   user: User | null;
   role: string | null;           // Renters vs Owners
   isLoading: boolean;            // Are we checking the server right now?
+  isVerifying: boolean;          // Are we verifying the OTP?
+  setIsVerifying: (value: boolean) => void;
   initialize: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({ // 👈 Added 'get' here to use in listener
   session: null,
   user: null,
   role: null,
   isLoading: true, // We start as 'loading' until we check Supabase
+  isVerifying: false, // Default to false
+  setIsVerifying: (value: boolean) => set({ isVerifying: value }),
 
   // Helpers to update variables
   signOut: async () => {
@@ -34,6 +38,12 @@ export const useAuthStore = create<AuthState>((set) => ({
 
     // 2. Start the permanent background listener
     supabase.auth.onAuthStateChange(async (event, session) => {
+      // 👈 CRITICAL: Ignore all events if we are in "Silent Mode"
+      if (get().isVerifying) {
+        console.log('Auth Event Ignored (Silent Mode):', event);
+        return;
+      }
+
       console.log('Auth Event:', event);
 
       if (event === 'SIGNED_OUT') {
@@ -55,5 +65,4 @@ export const useAuthStore = create<AuthState>((set) => ({
       }
     });
   },
-
 }));

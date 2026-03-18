@@ -1,5 +1,5 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack, useRouter, useSegments, useRootNavigationState } from 'expo-router'; // Added router & segments
+import { Stack, useRootNavigationState, useRouter, useSegments } from 'expo-router'; // Added router & segments
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import '../global.css';
@@ -22,7 +22,7 @@ export default function RootLayout() {
   const { initialize, isLoading, session } = useAuthStore();
   const segments = useSegments();
   const router = useRouter();
-  const rootNavigationState = useRootNavigationState(); // Required to detect if Root Stack is loaded
+  const rootNavigationState = useRootNavigationState(); // 👈 NEW: detect if Root Stack is loaded
 
   // 1. Wake up the Brain when the app starts!
   useEffect(() => {
@@ -45,8 +45,8 @@ export default function RootLayout() {
       const inCompleteProfile = segments.join('/') === 'auth/complete-profile';
 
       if (!inCompleteProfile && (inAuthGroup || segments[0] === undefined)) {
-          // If they are logged in and trying to go to login/signup or the root index, teleport them to home!
-          router.replace('/(protected)/(tabs)');
+        // If they are logged in and trying to go to login/signup or the root index, teleport them to home!
+        router.replace('/(protected)/(tabs)');
       }
     }
   }, [session, isLoading, segments, rootNavigationState?.key]);

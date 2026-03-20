@@ -28,20 +28,20 @@ Deno.serve(async (req: Request) => {
     return new Response("Method not allowed", { status: 405 });
   }
 
+  const bookings = await sql`select * from public.get_todays_bookings()`;
   try {
     // 1) Get today's bookings from DB function
-    const bookings = await sql`select * from public.get_todays_bookings()`;
     // bookings is an array of rows: { booking_id, owner_id, car_id, ... }
-
     // 2) Group by owner_id
     const groups = new Map();
     for (const row of bookings) {
+      if (!row.owner_id) continue;
       const owner = String(row.owner_id);
       if (!groups.has(owner)) groups.set(owner, []);
       groups.get(owner).push({
         booking_id: String(row.booking_id),
         car_id: String(row.car_id),
-        user_id: String(row.user_id),
+        customer_id: String(row.customer_id),
         start_time: row.start_time,
         end_time: row.end_time,
       });
@@ -67,14 +67,22 @@ Deno.serve(async (req: Request) => {
       // For owner-level summary we need some booking_id placeholder: pick the first booking id or make it null and rely on unique constraint differently.
       const firstBookingId = ownerBookings[0].booking_id;
 
-      // Attempt to insert notification row with CONFLICT DO NOTHING to ensure idempotency
+      // Attempt to insert a one-per-owner daily summary notification for today (idempotent)
       const insertRes = await sql`
-        insert into public.notifications (reference_id, receiver_id, title, body, type, is_read, created_at) values (${firstBookingId}::uuid, ${ownerId}::uuid, 'Daily booking summary', null, 'daily-summary', false, now()) on conflict (reference_id, type) do nothing returning id;
+        insert into public.notifications (reference_id, receiver_id, title, body, type, is_read, created_at)
+        select ${firstBookingId}::uuid, ${ownerId}::uuid, 'Daily booking summary', 'You have bookings starting today.', 'booking_update', false, now()
+        where not exists (
+          select 1 from public.notifications
+          where receiver_id = ${ownerId}::uuid
+            and type = 'booking_update'
+            and date(created_at at time zone 'UTC') = current_date at time zone 'UTC'
+        )
+        returning id;
       `;
 
       const inserted = insertRes.length > 0;
       if (!inserted) {
-        // Already notified (or another instance handled it)
+        // Already notified for today (or another concurrent run handled it)
         continue;
       }
 
@@ -107,14 +115,29 @@ Deno.serve(async (req: Request) => {
       //   }
     }
 
-    return new Response(JSON.stringify({ ok: true, failures }), {
-      headers: { "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ ok: true, failures, todaybookings: bookings }),
+      {
+        headers: { "Content-Type": "application/json" },
+      },
+    );
   } catch (error) {
     console.error("notify-bookings error:", error);
-    return new Response(JSON.stringify({ ok: false, error: String(error) }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        ok: false,
+        error: String(error),
+        todaybookings: bookings,
+      }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
   }
 });
+
+//
+/*
+  curl -i --location --request POST 'https://tapevnzpzdhwfzhpfvuy.supabase.co/functions/v1/notify-bookings' --header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRhcGV2bnpwemRod2Z6aHBmdnV5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyMzUyODcsImV4cCI6MjA4ODgxMTI4N30.98WEW5zZHIqGOZ9ptABGcFNHMXgJ785TtqYJgAJCB9o' --header 'Content-Type: application/json'
+  */

@@ -42,3 +42,10 @@ app-example
 # generated native folders
 /ios
 /android
+
+# google services
+google-services.json
+
+# Google Cloud API Keys / Credentials
+*-credentials.json
+client_secret_*.json

@@ -11,6 +11,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 
+import { usePushNotifications } from '@/hooks/usePushNotifications';
+import * as Notifications from 'expo-notifications';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 const queryClient = new QueryClient();
@@ -19,6 +21,15 @@ export const unstable_settings = {
   anchor: '(tabs)',
 };
 
+// 👈 NEW: Define the absolute default handler OUTSIDE the RootLayout component
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+  }),
+});
+
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const { initialize, isLoading, session } = useAuthStore();
@@ -26,10 +37,39 @@ export default function RootLayout() {
   const router = useRouter();
   const rootNavigationState = useRootNavigationState(); // 👈 NEW: detect if Root Stack is loaded
 
+
+  // 👈 NEW: Call your custom hook
+  const { registerForPushNotificationsAsync } = usePushNotifications();
+
+
   // 1. Wake up the Brain when the app starts!
   useEffect(() => {
     initialize();
   }, []);
+
+  // 👈 NEW: Get Push Token when session is successfully active
+  useEffect(() => {
+    if (session?.user) {
+      registerForPushNotificationsAsync();
+    }
+  }, [session?.user]);
+
+  // 👈 NEW: Dynamic Banner Suppression based on current screen
+  useEffect(() => {
+    Notifications.setNotificationHandler({
+      handleNotification: async (notification) => {
+        const isMessagesFeature = segments.includes('messages');
+        const activeChatId = segments.length > 1 ? segments[segments.length - 1] : null;
+        const senderId = notification.request.content.data?.senderId;
+        const isChattingWithSender = isMessagesFeature && activeChatId === senderId;
+        return {
+          shouldShowAlert: !isChattingWithSender,
+          shouldPlaySound: !isChattingWithSender,
+          shouldSetBadge: true,
+        };
+      },
+    });
+  }, [segments]);
 
   // 2. 🛡️ The Global Guard logic
   useEffect(() => {

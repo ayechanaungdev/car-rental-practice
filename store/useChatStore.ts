@@ -161,6 +161,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
         const pushToken = receiverRes.data?.expo_push_token;
         const senderName = senderRes.data?.full_name || 'Someone';
 
+        console.log('📬 Attempting push notification...');
+        console.log('   - Receiver Token:', pushToken ? 'Found ✅' : 'NOT FOUND ❌');
+        console.log('   - Sender Name:', senderName);
+
         // ==========================================
         // 👈 NEW: Save Notification to Database
         // ==========================================
@@ -179,7 +183,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         // 👈 NEW: Send Push via Expo Push API
         // ==========================================
         if (pushToken) {
-            await fetch('https://exp.host/--/api/v2/push/send', {
+            const response = await fetch('https://exp.host/--/api/v2/push/send', {
                 method: 'POST',
                 headers: {
                     Accept: 'application/json',
@@ -194,6 +198,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
                     data: { senderId: senderId, type: 'chat' },
                 }),
             });
+            const result = await response.json();
+            console.log('🚀 Expo Push API Result:', JSON.stringify(result, null, 2));
+        } else {
+            console.log('⏩ Skipping push notification: No receiver token found');
         }
     },
 

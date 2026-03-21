@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/useAuthStore';
+import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
@@ -34,17 +35,31 @@ export function usePushNotifications() {
         }
 
         try {
-            const projectId = 'your-expo-project-id'; // Make sure to add real Project ID if building with EAS later
-            const pushTokenString = (await Notifications.getExpoPushTokenAsync({
-                projectId
-            })).data;
+            const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
+            
+            if (!projectId) {
+              console.log('❌ Project ID not found in app.json. Add it to get Push Tokens!');
+              return;
+            }
+            console.log('✅ Project ID found:', projectId);
+
+            const pushTokenString = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+            console.log('🎫 Expo Push Token generated:', pushTokenString);
 
             // Save token to Supabase Profile immediately
             if (session?.user?.id) {
-                await supabase
+                const { error } = await supabase
                     .from('profiles')
                     .update({ expo_push_token: pushTokenString })
                     .eq('id', session.user.id);
+                
+                if (error) {
+                    console.error('❌ Failed to save push token to Supabase:', error.message);
+                } else {
+                    console.log('✅ Push Token saved to Supabase successfully');
+                }
+            } else {
+                console.log('⚠️ No active session found to save push token');
             }
 
             return pushTokenString;

@@ -1,18 +1,21 @@
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useChatStore } from '@/store/useChatStore';
+import { useHeaderHeight } from '@react-navigation/elements';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { Send } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import {
     FlatList,
+    Keyboard,
     KeyboardAvoidingView,
     Platform,
     Pressable,
     Text,
     TextInput,
-    View,
+    View
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function ChatScreen() {
     const { userId: partnerId } = useLocalSearchParams<{ userId: string }>();
@@ -28,6 +31,10 @@ export default function ChatScreen() {
     const navigation = useNavigation();
     const [text, setText] = useState('');
     const flatListRef = useRef<FlatList>(null);
+    const headerHeight = useHeaderHeight();
+    const insets = useSafeAreaInsets();
+    const [keyboardHeight, setKeyboardHeight] = useState(0);
+    const ANDROID_BUFFER = 16; // Buffer to clear the suggestions/accessory bar
 
     // 1. Set header title to partner's name
     useEffect(() => {
@@ -54,12 +61,38 @@ export default function ChatScreen() {
         return unsubscribe;
     }, [user?.id, partnerId]);
 
-    // 3. Auto-scroll when new messages arrive
+    // 3. Auto-scroll when new messages arrive or keyboard opens
     useEffect(() => {
         if (messages.length > 0) {
             setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
         }
     }, [messages.length]);
+
+    useEffect(() => {
+        const showSubscription = Keyboard.addListener(
+            Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+            (e) => {
+                if (Platform.OS === 'android') {
+                    setKeyboardHeight(e.endCoordinates.height + ANDROID_BUFFER);
+                }
+                setTimeout(() => {
+                    flatListRef.current?.scrollToEnd({ animated: true });
+                }, 100);
+            }
+        );
+        const hideSubscription = Keyboard.addListener(
+            Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+            () => {
+                if (Platform.OS === 'android') {
+                    setKeyboardHeight(0);
+                }
+            }
+        );
+        return () => {
+            showSubscription.remove();
+            hideSubscription.remove();
+        };
+    }, []);
 
     // 4. Send handler
     const handleSend = async () => {
@@ -103,15 +136,12 @@ export default function ChatScreen() {
         );
     };
 
-    return (
-        <KeyboardAvoidingView
-            className="flex-1 bg-white"
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            keyboardVerticalOffset={90}
-        >
+    const content = (
+        <>
             {/* Messages List */}
             <FlatList
                 ref={flatListRef}
+                style={{ flex: 1 }}
                 data={messages}
                 keyExtractor={(item) => item.id}
                 renderItem={renderMessage}
@@ -122,7 +152,12 @@ export default function ChatScreen() {
             />
 
             {/* Input Bar */}
-            <View className="flex-row items-center px-3 py-2 border-t border-gray-200 bg-white">
+            <View
+                style={{
+                    paddingBottom: Platform.OS === 'android' && keyboardHeight > 0 ? 12 : Math.max(insets.bottom, 12),
+                }}
+                className="flex-row items-center px-3 py-2 border-t border-gray-200 bg-white"
+            >
                 <TextInput
                     className="flex-1 bg-gray-100 rounded-full px-4 py-2 text-base mr-2"
                     placeholder="Type a message..."
@@ -140,6 +175,22 @@ export default function ChatScreen() {
                     <Send size={18} color="white" />
                 </Pressable>
             </View>
-        </KeyboardAvoidingView>
+        </>
+    );
+
+    return (
+        <View style={{ flex: 1, marginBottom: Platform.OS === 'android' ? keyboardHeight : 0 }}>
+            {Platform.OS === 'ios' ? (
+                <KeyboardAvoidingView
+                    style={{ flex: 1 }}
+                    behavior="padding"
+                    keyboardVerticalOffset={headerHeight}
+                >
+                    {content}
+                </KeyboardAvoidingView>
+            ) : (
+                content
+            )}
+        </View>
     );
 }

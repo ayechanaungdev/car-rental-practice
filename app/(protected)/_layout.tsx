@@ -52,6 +52,14 @@ export default function ProtectedLayout() {
           headerTintColor: '#16a8e3'
         }}
       />
+      <Stack.Screen
+        name="chat/[userId]"
+        options={{
+          headerShown: true,
+          title: 'Chat',
+          headerTintColor: '#16a8e3',
+        }}
+      />
     </Stack>
   );
 }

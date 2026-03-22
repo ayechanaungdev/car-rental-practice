@@ -148,7 +148,63 @@ export const useChatStore = create<ChatState>((set, get) => ({
         if (data) {
             set(state => ({ messages: [...state.messages, data] }));
         }
+
+        // FOR PUSH NOTIFICATION
+        // ==========================================
+        // 👈 NEW: Fetch Push Token & Send via Expo
+        // ==========================================
+        const [receiverRes, senderRes] = await Promise.all([
+            supabase.from('profiles').select('expo_push_token').eq('id', receiverId).single(),
+            supabase.from('profiles').select('full_name').eq('id', senderId).single()
+        ]);
+
+        const pushToken = receiverRes.data?.expo_push_token;
+        const senderName = senderRes.data?.full_name || 'Someone';
+
+        console.log('📬 Attempting push notification...');
+        console.log('   - Receiver Token:', pushToken ? 'Found ✅' : 'NOT FOUND ❌');
+        console.log('   - Sender Name:', senderName);
+
+        // ==========================================
+        // 👈 NEW: Save Notification to Database
+        // ==========================================
+        if (data) {
+            await supabase.from('notifications').insert({
+                receiver_id: receiverId,
+                sender_id: senderId,
+                reference_id: data.id, // The message ID
+                title: `New message from ${senderName}`,
+                body: content,
+                type: 'message'
+            });
+        }
+
+        // ==========================================
+        // 👈 NEW: Send Push via Expo Push API
+        // ==========================================
+        if (pushToken) {
+            const response = await fetch('https://exp.host/--/api/v2/push/send', {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'Accept-encoding': 'gzip, deflate',
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    to: pushToken,
+                    sound: 'default',
+                    title: `New message from ${senderName}`,
+                    body: content,
+                    data: { senderId: senderId, type: 'chat' },
+                }),
+            });
+            const result = await response.json();
+            console.log('🚀 Expo Push API Result:', JSON.stringify(result, null, 2));
+        } else {
+            console.log('⏩ Skipping push notification: No receiver token found');
+        }
     },
+
 
     // 4. Mark all messages from partner as read
     markAsRead: async (userId: string, partnerId: string) => {
@@ -201,4 +257,5 @@ export const useChatStore = create<ChatState>((set, get) => ({
             };
         });
     },
+
 }));

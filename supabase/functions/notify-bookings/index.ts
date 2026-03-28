@@ -21,37 +21,59 @@ Deno.serve(async (req: Request) => {
         }
 
         // Separate based on the NEW status returned
-        const rejectedBookings = changedBookings.filter(b => b.new_status === 'rejected');
-        const completedBookings = changedBookings.filter(b => b.new_status === 'completed');
+        const rejectedBookings = changedBookings.filter((b: any) => b.new_status === 'rejected');
+        const completedBookings = changedBookings.filter((b: any) => b.new_status === 'completed');
 
         // 2. Insert Daily Report & Notifications for COMPLETED bookings
         if (completedBookings.length > 0) {
-            const completedIds = completedBookings.map(b => b.booking_id);
 
-            // Insert a Daily Report record
-            await sql`
-        insert into public.daily_reports (owner_id, total_completed, booking_ids, status, created_at)
-        values (
-          ${completedBookings[0].customer_id}, 
-          ${completedBookings.length},
-          ${JSON.stringify(completedIds)},
-          'completed',
-          NOW()
-        )
-      `;
+            // Group the completed bookings by Car Owner safely
+            const bookingsByOwner: Record<string, string[]> = {};
 
-            // Create a notification for the customer
-            await sql`
-        insert into public.notifications (sender_id, receiver_id, reference_id, title, body, type)
-        values (
-          ${completedBookings[0].customer_id},
-          ${completedBookings[0].customer_id},
-          ${completedBookings[0].booking_id},
-          'Daily Booking Report',
-          '${completedBookings.length} of your bookings ended yesterday and are completed.',
-          'daily_report'
-        )
-      `;
+            for (const booking of completedBookings) {
+                if (!booking.owner_id) {
+                    console.error(`Missing owner_id for booking ${booking.booking_id}! Did you forget to run the Section 2.1 SQL migration?`);
+                    continue; // Skip so we don't crash Postgres with undefined::uuid
+                }
+                if (!bookingsByOwner[booking.owner_id]) {
+                    bookingsByOwner[booking.owner_id] = [];
+                }
+                bookingsByOwner[booking.owner_id].push(booking.booking_id);
+            }
+
+            // For every unique Car Owner whose bookings completed yesterday
+            for (const [ownerId, bookingIds] of Object.entries(bookingsByOwner)) {
+
+                // Isolate the values safely outside the DB query to avoid string-parsing conflicts
+                const totalCompleted = bookingIds.length;
+                const messageBody = `${totalCompleted} of your bookings ended yesterday and are marked completed.`;
+                const idsJson = JSON.stringify(bookingIds);
+
+                // Insert a Daily Report record for this specific owner (with explicit Postgres type casting)
+                await sql`
+          insert into public.daily_reports (owner_id, total_completed, booking_ids, status, created_at)
+          values (
+            ${ownerId}::uuid, 
+            ${totalCompleted}::int,
+            ${idsJson}::jsonb,
+            'completed',
+            NOW()
+          )
+        `;
+
+                // Create a notification for the owner
+                await sql`
+          insert into public.notifications (receiver_id, sender_id, reference_id, title, body, type)
+          values (
+            ${ownerId}::uuid,
+            ${ownerId}::uuid,
+            ${bookingIds[0]}::uuid,
+            'Daily Booking Report',
+            ${messageBody},
+            'system'
+          )
+        `;
+            }
         }
 
         return new Response(
